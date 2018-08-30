@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset=utf-8 />
+	<title></title>
+	<style type="text/css">
+		input {
+			width: 50%;
+			margin-left: 25%;
+			margin-top: 25vh;
+			font-size: 25vmin;
+			border:1px solid black;
+			background-color: white;
+			border-radius: 10vmin;
+		}
+	</style>
+	<script type="text/javascript">
+
+		class SuperTone {
+
+			constructor(generatorFunc) {
+				this.generatorFunc = generatorFunc;
+			}
+
+			generate(time) {
+				return this.generatorFunc(time);
+			}
+
+			static sinWave(frequency) {
+				const theFreq = frequency * 2 * Math.PI;
+				return new SuperTone(time => Math.sin(theFreq * time));
+			}
+
+			static random(amplitude) {
+				return new SuperTone(() => ((Math.random() * 2) - 1) * amplitude);
+			}
+
+			static pulsar(frequency, pulse, amplitude) {
+				return SuperTone.sinWave(frequency).pulse(pulse).amplitude(amplitude);
+			}
+
+			amplitude(amplitude) {
+				let theTone = this.generatorFunc;
+				return new SuperTone(time => amplitude * theTone(time));
+			}
+
+			offset(offset) {
+				let theTone = this.generatorFunc;
+				return new SuperTone(time => theTone(time + offset));
+			}
+
+			pulse(pulse) {
+				let theTone = this.generatorFunc;
+				let pulseRate = 2 * Math.PI / pulse;
+				return new SuperTone(time => theTone(time) * Math.sin(Math.sin(time * pulseRate)));
+			}
+		}
+
+		let theGenerators = [
+		SuperTone.random(0.001),
+        SuperTone.sinWave(440.0)
+            .pulse(5.0)
+            .pulse(7)
+            .pulse(13)
+            .amplitude(0.1),
+        
+        SuperTone.sinWave(60.0)
+            .pulse(2.0)
+            .amplitude(0.2),
+        SuperTone.sinWave(120.0)
+            .pulse(2.0)
+            .amplitude(0.1),
+            SuperTone.pulsar(220.0, 5.0, 0.05),
+	        SuperTone.pulsar(220.0, 7.0, 0.05),
+	        SuperTone.pulsar(220.0, 11.0, 0.05),
+	        SuperTone.pulsar(220.0, 17.0, 0.05),
+	        SuperTone.pulsar(293.66, 19.0, 0.05),
+	        SuperTone.pulsar(220.0, 23.0, 0.05),
+	        SuperTone.pulsar(220.0, 29.0, 0.05),
+	        SuperTone.pulsar(220.0, 31.0, 0.05),
+		];
+
+		function init() {
+			refreshUI();
+		}
+
+		var audioContext = null;
+		var audioSetup;
+		var isPlaying = false;
+		var rampUp = 0;
+
+		function initAudio() {
+			audioContext = new (window.AudioContext || window.webkitAudioContext)();
+			var processor = audioContext.createScriptProcessor(2048, 0, 1);
+			processor.onaudioprocess = processAudio;
+
+			 audioSetup = {
+				processor: processor
+			};
+			processor.connect(audioContext.destination);
+		}
+
+		function refreshUI() {
+			document.getElementById("button").value = isPlaying ? "\u275a\u275a" : "\u25BA";
+		}
+
+		function toggle() {
+			isPlaying ? stop() : start();
+		}
+
+		function start() {
+			initAudio()
+			rampUp = 0;
+			isPlaying = true;
+			refreshUI();
+		}
+
+		function stop() {
+			audioContext.close();
+			delete audioContext;
+			rampUp = 0;
+			audioSetup.processor.disconnect();
+			isPlaying = false;
+			refreshUI();
+		}
+
+		function processAudio(audioProcessingEvent) {
+			// The input buffer is the song we loaded earlier
+			// var inputBuffer = audioProcessingEvent.inputBuffer;
+
+			// The output buffer contains the samples that will be modified and played
+			var outputBuffer = audioProcessingEvent.outputBuffer;
+			var time = audioProcessingEvent.playbackTime;
+			var inputLength = outputBuffer.length;
+			var timePerSample = 1 / audioContext.sampleRate;
+			// Loop through the output channels (in this case there is only one)
+			for (var channel = 0; channel < outputBuffer.numberOfChannels; channel++) {
+				var outputData = outputBuffer.getChannelData(channel);
+
+				// Loop through the samples
+				for (var sample = 0; sample < inputLength; sample++) {
+					var value = 0
+					var sampleTime = time + (sample * timePerSample);
+
+					for (var i = 0; i < theGenerators.length; i++) {
+						value += theGenerators[i].generate(sampleTime);
+					}
+
+					if (Math.abs(value) > 0.75) {
+						value = 0.75 * value / Math.abs(value);
+					}
+					outputData[sample] = value * rampUp;
+					rampUp = Math.min(1, rampUp + 0.00001);				 
+				}
+			}
+		}
+
+	</script>
+</head>
+<body onload="init();">
+	<input id="button" type="button" value="Click me &#9654;" onclick="toggle()">
+</body>
+</html>
