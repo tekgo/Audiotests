@@ -57,7 +57,14 @@
 		}
 
 		let theGenerators = [
-		SuperTone.random(0.001),
+		/*SuperTone.sinWave(880.0)
+			.pulse(0.5)
+            .pulse(2.0)
+            .amplitude(0.01),*/
+        SuperTone.sinWave(880.0)
+            .pulse(2.0)
+            .amplitude(0.01),
+		SuperTone.random(0.0001),
         SuperTone.sinWave(440.0)
             .pulse(5.0)
             .pulse(7)
