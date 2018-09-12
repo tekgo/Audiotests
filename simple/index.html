@@ -22,13 +22,13 @@
 				this.generatorFunc = generatorFunc;
 			}
 
-			generate(time) {
-				return this.generatorFunc(time);
+			generate(time, channel) {
+				return this.generatorFunc(time, channel);
 			}
 
 			static sinWave(frequency) {
 				const theFreq = frequency * 2 * Math.PI;
-				return new SuperTone(time => Math.sin(theFreq * time));
+				return new SuperTone((time, channel) => Math.sin(theFreq * time));
 			}
 
 			static random(amplitude) {
@@ -41,18 +41,26 @@
 
 			amplitude(amplitude) {
 				let theTone = this.generatorFunc;
-				return new SuperTone(time => amplitude * theTone(time));
+				return new SuperTone((time, channel) => amplitude * theTone(time, channel));
 			}
 
 			offset(offset) {
 				let theTone = this.generatorFunc;
-				return new SuperTone(time => theTone(time + offset));
+				return new SuperTone((time, channel) => theTone(time + offset, channel));
 			}
 
 			pulse(pulse) {
 				let theTone = this.generatorFunc;
 				let pulseRate = 2 * Math.PI / pulse;
-				return new SuperTone(time => theTone(time) * Math.sin(Math.sin(time * pulseRate)));
+				return new SuperTone((time, channel) => theTone(time, channel) * Math.sin(Math.sin(time * pulseRate)));
+			}
+
+			wiggle(offset, speed) {
+				let theTone = this.generatorFunc;
+				return new SuperTone((time, channel) => {
+					const amount = 1 + (Math.sin((speed * time) + (channel * offset)) / 2);
+					return theTone(time) * Math.pow(amount, 2);
+				});
 			}
 		}
 
@@ -61,8 +69,9 @@
 			.pulse(0.5)
             .pulse(2.0)
             .amplitude(0.01),*/
-        SuperTone.sinWave(880.0)
+        SuperTone.sinWave(660.0)
             .pulse(2.0)
+            .wiggle(Math.PI, 1.5)
             .amplitude(0.01),
 		SuperTone.random(0.0001),
         SuperTone.sinWave(440.0)
@@ -98,7 +107,7 @@
 
 		function initAudio() {
 			audioContext = new (window.AudioContext || window.webkitAudioContext)();
-			var processor = audioContext.createScriptProcessor(2048, 0, 1);
+			var processor = audioContext.createScriptProcessor(8192, 0, 2);
 			processor.onaudioprocess = processAudio;
 
 			 audioSetup = {
@@ -150,7 +159,7 @@
 					var sampleTime = time + (sample * timePerSample);
 
 					for (var i = 0; i < theGenerators.length; i++) {
-						value += theGenerators[i].generate(sampleTime);
+						value += theGenerators[i].generate(sampleTime, channel);
 					}
 
 					if (Math.abs(value) > 0.75) {
